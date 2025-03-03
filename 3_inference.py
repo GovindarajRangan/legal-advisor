@@ -6,8 +6,9 @@ from transformers import pipeline
 import torch
 from transformers import AutoTokenizer, AutoModelForCausalLM, BitsAndBytesConfig
 from langchain.chains import RetrievalQA
-import warnings
-warnings.filterwarnings("ignore")
+import logging
+
+logging.getLogger("langchain").setLevel(logging.ERROR)
 
 vectorstore_persist_path = "/Users/govin/Projects/sprintdotnext/legal-advisor/vectorstore"
 
@@ -40,22 +41,26 @@ text_generation_pipeline = pipeline(
     model=model,
     tokenizer=tokenizer,
     task="text-generation",
-    temperature=0.2,
+    temperature=0.7,
     do_sample=True,
     repetition_penalty=1.1,
     return_full_text=False,
-    max_new_tokens=200,
+    max_length = 1024,
+    #max_new_tokens=200,
     eos_token_id=terminators,
 )
 
 llm = HuggingFacePipeline(pipeline=text_generation_pipeline)
 
 prompt_template = """
+<|start_header_id|>system<|end_header_id|>
+You are an expert in U.S. Citizenship and Immigration Services policies.
+- You are given the extracted parts of the current USCIS policy manual. If there are any references from the retrieved documents, share that also part of your answer.
+Provide a conversational answer. 
+- If you don't know the answer, just say "I do not know." Don't make up an answer.
+- If the user's question is not related to USCIS policies, you will politely say "I do not know".
+<|eot_id|>
 <|start_header_id|>user<|end_header_id|>
-You are an assistant for answering questions using provided context.
-You are given the extracted parts of a long document and a question. Provide a conversational answer.
-If you don't know the answer, just say "I do not know." Don't make up an answer.
-If there are any references from the retrieved documents, share that also part of your answer.
 Question: {question}
 Context: {context}<|eot_id|><|start_header_id|>assistant<|end_header_id|>
 """
@@ -79,8 +84,8 @@ qa_chain = RetrievalQA.from_chain_type(
     verbose=True
 )
 
-message = input("User: ")
+message = input("\n\nUser: ")
 while (message != 'done'):
     response = qa_chain.invoke(message)["result"]
-    print(f"Advisor: {response}")
-    message  = input("User: ")
+    print(f"USCIS Advisor: {response}")
+    message  = input("\n\nUser: ")
